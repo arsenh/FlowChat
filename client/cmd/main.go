@@ -1,33 +1,55 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"time"
 )
 
 func main() {
-	serverAddr := "localhost:8081"
+
+	inputReader := bufio.NewReader(os.Stdin)
+
+	serverAddr := "0.0.0.0:8081"
 
 	conn, err := net.Dial("tcp", serverAddr)
-
 	if err != nil {
 		fmt.Printf("Error connecting to server: %v\n", err)
+		return
 	}
-
 	defer conn.Close()
 
 	fmt.Printf("Connected to TCP server at %s\n", serverAddr)
 
-	message := "Hello to TCP Server from Go!"
-	bytes := []byte(message)
+	remoteReader := bufio.NewReader(conn)
 
-	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	for {
+		fmt.Print(">>> ")
+		input, _ := inputReader.ReadString('\n')
+		input = strings.TrimSpace(input) + "\n"
 
-	n, err := conn.Write(bytes)
-	if err != nil {
-		fmt.Printf("Error sending data: %v\n", err)
+		if input == "exit\n" {
+			fmt.Println("Exiting ...")
+			break
+		}
+
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+
+		_, err := conn.Write([]byte(input))
+		if err != nil {
+			fmt.Printf("Error sending data: %v\n", err)
+			continue
+		}
+
+		serverData, err := remoteReader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("Error reading from server: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("Server Response: %s\n", serverData)
 	}
-
-	fmt.Printf("Sent %d bytes\n", n)
 }

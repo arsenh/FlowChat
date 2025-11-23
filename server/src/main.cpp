@@ -3,71 +3,98 @@
 #include <string_view>
 #include <thread>
 #include <boost/asio.hpp>
+#include <memory>
 
-using namespace boost;
-using namespace boost::asio;
+namespace asio = boost::asio;
 
-using Tcp = boost::asio::ip::tcp;
-
-unsigned short port = 8081;
-asio::io_context ioc{};
-Tcp::acceptor acceptor{ioc, Tcp::endpoint(Tcp::v4(), port)};
-
-void handle_client(std::shared_ptr<Tcp::socket> socket,
-                   std::shared_ptr<std::vector<char>> buffer,
-                   const boost::system::error_code &ec,
-                   std::size_t bytes_read)
+class Server
 {
-    if (ec)
+public:
+    Server(unsigned short port)
+        : ioc{},
+          acceptor_{ioc, asio::ip::tcp::endpoint{asio::ip::tcp::v4(), port}}
     {
-        std::println("Read error: {}", ec.message());
-        return;
     }
 
-    std::string_view msg(buffer->data(), bytes_read);
-    std::println("Received {} bytes: {}", bytes_read, msg);
-}
-
-void accept_handler(const boost::system::error_code& ec,
-                    std::shared_ptr<Tcp::socket> socket)
-{
-    if (!ec)
+    void accept_connection()
     {
-        std::println("Accepted {}", socket->remote_endpoint().address().to_string());
+        auto sock = std::make_shared<asio::ip::tcp::socket>(ioc);
 
-        auto buffer = std::make_shared<std::vector<char>>(1024);
+        acceptor_.async_accept(*sock, [sock, this](const boost::system::error_code &ec)
+        {
+            if (ec)
+            {
+                std::println("Accept error: {}", ec.message());
+                return;
+            }
 
-        socket->async_read_some(asio::buffer(*buffer),
-                                [socket, buffer](auto&&... args)
-                                {
-                                    handle_client(socket, buffer,
-                                                  std::forward<decltype(args)>(args)...);
-                                });
-    }
-    else
-    {
-        std::println("Accept error: {}", ec.message());
+            std::println("Accepted new connection: {}",
+                         sock->remote_endpoint().address().to_string());
+
+            handle_accept(sock);
+            accept_connection(); // accept next client
+        });
     }
 
-    // Start next accept — **always at end**
-    auto new_socket = std::make_shared<Tcp::socket>(ioc);
-    acceptor.async_accept(*new_socket,
-                          [new_socket](auto&&... args)
-                          {
-                              accept_handler(std::forward<decltype(args)>(args)..., new_socket);
-                          });
-}
+    void handle_accept(std::shared_ptr<asio::ip::tcp::socket> sock)
+    {
+        auto buffer = std::make_shared<asio::streambuf>();
+        read(sock, buffer);
+    }
+
+    void read(std::shared_ptr<asio::ip::tcp::socket> sock,
+              std::shared_ptr<asio::streambuf> buffer)
+    {
+        async_read_until(*sock, *buffer, '\n',
+                         [this, sock, buffer](const boost::system::error_code &ec, std::size_t bytes)
+                         {
+                             if (ec)
+                             {
+                                 std::println("Failed to read client data: {}", ec.message());
+                                 return;
+                             }
+
+                             std::istream is(buffer.get());
+                             std::string client_data;
+                             std::getline(is, client_data);
+                             buffer->consume(bytes);
+
+                             std::println("Received Data From Client: {}", client_data);
+
+                             std::transform(client_data.begin(), client_data.end(),
+                                            client_data.begin(), ::toupper);
+
+                             async_write(*sock, asio::buffer(client_data + "\n"),
+                                         [this, sock, buffer](const boost::system::error_code &error,
+                                                              std::size_t bytes_transferred)
+                                         {
+                                             if (error)
+                                             {
+                                                 std::println("Write error: {}", error.message());
+                                                 return;
+                                             }
+
+                                             std::println("Server transferred {} bytes", bytes_transferred);
+                                             read(sock, buffer);
+                                         });
+                         });
+    }
+
+    void run()
+    {
+        std::println("Server started ...");
+        accept_connection();
+        ioc.run();
+    }
+
+private:
+    asio::io_context ioc;
+    asio::ip::tcp::acceptor acceptor_;
+};
 
 int main()
 {
-    std::println("Listening on port {}", port);
-
-    auto socket = std::make_shared<Tcp::socket>(ioc);
-    acceptor.async_accept(*socket,
-                          [socket](auto&&... args)
-                          {
-                              accept_handler(std::forward<decltype(args)>(args)..., socket);
-                          });
-
-    ioc.run();
+    Server s{8081};
+    s.run();
+    return 0;
 }
