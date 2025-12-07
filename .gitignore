@@ -1,6 +1,3 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -27,6 +24,104 @@ go.work.sum
 # env file
 .env
 
-# Editor/IDE
+# Build output directory
 bin/
-server/.idea/
+
+# ============================================
+# C++ (Server)
+# ============================================
+
+# CMake
+server/build/
+server/CMakeCache.txt
+server/CMakeFiles/
+server/cmake_install.cmake
+server/Makefile
+server/*.cmake
+server/compile_commands.json
+
+# Conan
+server/conan.lock
+server/conanbuildinfo.*
+server/conaninfo.txt
+server/graph_info.json
+
+# C++ compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.exp
+*.pdb
+*.ilk
+
+# C++ executables
+server/flow_chat_server
+
+# ============================================
+# Java (Client)
+# ============================================
+
+# Maven
+client/target/
+client/pom.xml.tag
+client/pom.xml.releaseBackup
+client/pom.xml.versionsBackup
+client/pom.xml.next
+client/release.properties
+client/dependency-reduced-pom.xml
+client/buildNumber.properties
+client/.mvn/timing.properties
+client/.mvn/wrapper/maven-wrapper.jar
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ============================================
+# IDEs and Editors
+# ============================================
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# VS Code
+.vscode/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

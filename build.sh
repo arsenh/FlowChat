@@ -1,5 +1,4 @@
 #!/bin/zsh
-
 set -e  # stop on first error
 
 BIN_DIR="./bin"
@@ -8,16 +7,39 @@ BIN_DIR="./bin"
 mkdir -p "$BIN_DIR"
 
 build_client() {
-    echo "Building Go client..."
+    echo "Building Java client..."
     cd client
-    go build -o "../bin/flow_chat_client" ./cmd/main.go
+
+    # Build with Maven wrapper
+    ./mvnw clean package -DskipTests
+
+    # Find the generated JAR (assuming it's in target/)
+    JAR_FILE=$(find target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -n 1)
+
+    if [ -z "$JAR_FILE" ]; then
+        echo "Error: No JAR file found in target/"
+        exit 1
+    fi
+
+    # Copy JAR to bin directory
+    cp "$JAR_FILE" "../bin/flow_chat_client.jar"
+
+    # Create executable script
+    cat > "../bin/flow_chat_client" << 'EOF'
+#!/bin/zsh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+java -jar "$DIR/flow_chat_client.jar" "$@"
+EOF
+
+    chmod +x "../bin/flow_chat_client"
+
     cd ..
-    echo "Client built: bin/flow_chat_client"
+    echo "Client built: bin/flow_chat_client.jar"
+    echo "Launcher script: bin/flow_chat_client"
 }
 
 build_server() {
     echo "Building C++ server..."
-
     cd server
 
     # Create build directory if missing
@@ -58,6 +80,12 @@ clean_all() {
         echo "Removed: server/build/"
     fi
 
+    # Remove Maven target directory
+    if [ -d "client/target" ]; then
+        rm -rf "client/target"
+        echo "Removed: client/target/"
+    fi
+
     echo "Clean complete."
 }
 
@@ -80,4 +108,3 @@ case "$1" in
         exit 1
         ;;
 esac
-
