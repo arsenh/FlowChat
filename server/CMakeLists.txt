@@ -14,7 +14,8 @@ include_directories(
 # Source files
 add_executable(${PROJECT_NAME}
         src/main.cpp
-        src/tcp/server.cpp
+        src/server/server.cpp
+        src/session/session.cpp
 )
 
 # Link Crow after target creation
